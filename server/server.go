@@ -1,6 +1,5 @@
 package server
 
-import "C"
 import (
 	"context"
 	"github.com/miekg/dns"

@@ -1,5 +1,5 @@
 GOBUILD:=go build -trimpath -ldflags="-s -w" -a -v -o
-BIN:=bin/
+BIN:=bin
 NANE:=doh
 
 build:

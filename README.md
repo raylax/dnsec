@@ -1,5 +1,5 @@
 # DNS Sec
-> 为不支持`DoT/DoH`的客户端提供`DoT/DoH``到普通`DNS`协议转换
+> 为不支持`DoT/DoH`的客户端提供`DoT/DoH`到普通`DNS`协议转换
 
 支持 [RFC8484](https://datatracker.ietf.org/doc/html/rfc8484) [RFC7858](https://datatracker.ietf.org/doc/html/rfc7858) 标准
 

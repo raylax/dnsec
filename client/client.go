@@ -2,14 +2,43 @@ package client
 
 import (
 	"encoding/base64"
+	"github.com/miekg/dns"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
 )
 
-type Client struct {
-	Endpoint string
+type Client interface {
+	Query(*dns.Msg) (*dns.Msg, error)
+}
+
+type dotClient struct {
+	endpoint string
+	cli *dns.Client
+}
+
+func NewDoT(endpoint string) *dotClient {
+	c := &dotClient{
+		endpoint: endpoint,
+		cli: &dns.Client{
+			Net: "tcp-tls",
+		},
+	}
+	return c
+}
+
+func (c *dotClient) Query(q *dns.Msg) (r *dns.Msg, err error) {
+	r, _, err = c.cli.Exchange(q, c.endpoint)
+	return
+}
+
+type dohClient struct {
+	endpoint string
+}
+
+func NewDoH(endpoint string) *dohClient {
+	return &dohClient{endpoint: endpoint}
 }
 
 var defaultTransport http.RoundTripper = &http.Transport{
@@ -28,17 +57,25 @@ var client = &http.Client{
 	Transport: defaultTransport,
 }
 
-func (cli Client) Query(q []byte) ([]byte, error) {
-	data := base64.RawURLEncoding.EncodeToString(q)
-	req, err := http.NewRequest("GET", cli.Endpoint + "?dns=" + data, nil)
-	req.Header.Set("Content-Type", "application/dns-message")
+func (c *dohClient) Query(q *dns.Msg) (r *dns.Msg, err error) {
+	bytes, err := q.Pack()
 	if err != nil {
-		return nil, err
+		return
 	}
+	data := base64.RawURLEncoding.EncodeToString(bytes)
+	req, err := http.NewRequest("GET", c.endpoint + "?dns=" + data, nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/dns-message")
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	result, err := ioutil.ReadAll(resp.Body)
+	r = &dns.Msg{}
+	r.SetReply(q)
+	err = r.Unpack(result)
+	return
 }

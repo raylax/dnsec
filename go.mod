@@ -1,4 +1,4 @@
-module github.com/raylax/DoH-local
+module github.com/raylax/dnsec
 
 go 1.17
 

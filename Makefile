@@ -1,6 +1,6 @@
 GOBUILD:=go build -trimpath -ldflags="-s -w" -a -v -o
 BIN:=bin
-NANE:=doh
+NANE:=dnsec
 
 build:
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(BIN)/$(NANE)_darwin_arm64

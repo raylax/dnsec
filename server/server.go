@@ -1,62 +1,33 @@
 package server
 
 import (
-	"context"
 	"github.com/miekg/dns"
-	"github.com/raylax/DoH-local/client"
+	"github.com/raylax/dnsec/handler"
 	"log"
-	"net"
 )
 
-const bufferSize = 1024
-
 type Server struct {
-	Ctx context.Context
-	Client client.Client
-	Listen string
+	Handler *handler.Handler
+	srv *dns.Server
 }
 
-func (s Server) Start() error {
-	pc, err := net.ListenPacket("udp", s.Listen + ":53")
-	if err != nil {
-		return err
-	}
-	defer pc.Close()
-
-
+func (s *Server) Start() {
+	s.srv = &dns.Server{Addr: ":53", Net: "udp", Handler: s.Handler}
+	log.Println("Start DNS server")
 	go func() {
-		for {
-			buffer := make([]byte, bufferSize)
-			n, addr, err := pc.ReadFrom(buffer)
-			if err != nil {
-				return
-			}
-			go s.handlePacket(pc, addr, buffer[:n])
+		err := s.srv.ListenAndServe()
+		if err != nil {
+			log.Printf("Server error - %s\n", err.Error())
 		}
 	}()
-
-	select {
-	case <-s.Ctx.Done():
-		err = s.Ctx.Err()
-	}
-	return nil
 }
 
-func (s Server) handlePacket(pc net.PacketConn, remote net.Addr, data []byte) {
-	query := dns.Msg{}
-	err := query.Unpack(data)
-	if err != nil {
+func (s *Server) Shutdown() {
+	if s.srv == nil {
 		return
 	}
-	if len(query.Question) == 1 {
-		q := query.Question[0]
-		log.Printf("[*] [%s] Query [%s] [%s]\n", remote.String(), dns.Type(q.Qtype).String(), q.Name)
-	}
-	result, err := s.Client.Query(data)
+	err := s.srv.Shutdown()
 	if err != nil {
-		log.Printf("[!] ERROR - %s\n", err.Error())
-		return
+		log.Printf("Shutdown DNS server error - %s\n", err.Error())
 	}
-	pc.WriteTo(result, remote)
-
 }

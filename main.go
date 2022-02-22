@@ -1,44 +1,46 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"github.com/raylax/DoH-local/client"
-	"github.com/raylax/DoH-local/server"
+	"github.com/raylax/dnsec/client"
+	"github.com/raylax/dnsec/handler"
+	"github.com/raylax/dnsec/server"
 	"log"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 )
 
-var endpoint = "https://208.67.222.222/dns-query"
-var listen = "0.0.0.0"
 
 func printUsage() {
-	fmt.Printf("Usage %s [ENDPOINT] [LISTEN]\n", os.Args[0])
+	fmt.Printf("Usage %s [ENDPOINT]\n", os.Args[0])
 	os.Exit(0)
 }
 
 func main() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM)
+	signal.Notify(signalChan, syscall.SIGINT)
 	args := os.Args[1:]
 	if len(args) < 1 {
 		printUsage()
 	}
-	if len(args) > 0 {
-		endpoint = args[0]
+	endpoint := args[0]
+	var c client.Client
+	if strings.HasPrefix(endpoint, "http") {
+		c = client.NewDoH(endpoint)
+		log.Println("[*] Using DoH")
+	} else {
+		c = client.NewDoT(endpoint)
+		log.Println("[*] Using DoT")
 	}
-	if len(args) > 1 {
-		listen = args[1]
-	}
-	log.Printf("[*] Using endpoint [%s]\n", endpoint)
-	log.Printf("[*] Listen on [%s]\n", listen)
-	c := client.Client{
-		Endpoint: endpoint,
-	}
-	s := server.Server{
-		Ctx:    context.Background(),
-		Client: c,
-		Listen: "0.0.0.0",
-	}
-	if err := s.Start(); err != nil {
-		log.Fatalln("[!] ERR - " + err.Error())
-	}
+	log.Printf("[*] Endpoint [%s]\n", endpoint)
+	h := &handler.Handler{Client: c}
+	s := &server.Server{Handler: h}
+	s.Start()
+
+	<-signalChan
+	log.Println("Shutdown")
+	s.Shutdown()
 }
